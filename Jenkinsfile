@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        cron('30 10 * * *')
+    }
+    
     environment {
         IMAGE_NAME = "flask-calculator"
         CONTAINER_NAME = "flask-calculator"
