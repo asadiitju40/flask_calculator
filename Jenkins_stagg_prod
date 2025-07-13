@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+
+    triggers {
+        // Run every 5 minutes
+        cron('H/5 * * * *')
+    }
+
+    environment {
+        IMAGE_NAME = "flask-calculator"
+        CONTAINER_NAME = "flask-calculator"
+        PORT = "5000"
+
+        // Define server info
+        STAGING_IP = "192.168.88.120"
+        PROD_IP = "192.168.88.130"
+
+        // Corresponding SSH credentials
+        STAGING_CRED = "staging-server-key"
+        PROD_CRED = "prod-server-key"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${IMAGE_NAME} ."
+            }
+        }
+
+        stage('Deploy to Staging') {
+            steps {
+                echo "Deploying to Staging Server: ${STAGING_IP}"
+                sshagent(credentials: [env.STAGING_CRED]) {
+                    sh """
+                        docker save ${IMAGE_NAME} | ssh -o StrictHostKeyChecking=no deployuser@${STAGING_IP} 'docker load'
+                        ssh deployuser@${STAGING_IP} '
+                            docker stop ${CONTAINER_NAME} || true &&
+                            docker rm ${CONTAINER_NAME} || true &&
+                            docker run -d --name ${CONTAINER_NAME} -p ${PORT}:${PORT} ${IMAGE_NAME}
+                        '
+                    """
+                }
+            }
+        }
+
+        stage('Health Check: Staging Server') {
+            steps {
+                script {
+                    def result = sh(
+                        script: "ssh -o StrictHostKeyChecking=no deployuser@${STAGING_IP} 'curl -sSf http://localhost:${PORT}'",
+                        returnStatus: true
+                    )
+                    if (result != 0) {
+                        error("❌ Staging server health check failed. Halting pipeline.")
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                echo "Deploying to Production Server: ${PROD_IP}"
+                sshagent(credentials: [env.PROD_CRED]) {
+                    sh """
+                        docker save ${IMAGE_NAME} | ssh -o StrictHostKeyChecking=no deployuser@${PROD_IP} 'docker load'
+                        ssh deployuser@${PROD_IP} '
+                            docker stop ${CONTAINER_NAME} || true &&
+                            docker rm ${CONTAINER_NAME} || true &&
+                            docker run -d --name ${CONTAINER_NAME} -p ${PORT}:${PORT} ${IMAGE_NAME}
+                        '
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ App deployed successfully to Staging and Production"
+        }
+        failure {
+            echo "❌ Deployment failed."
+        }
+    }
+}
