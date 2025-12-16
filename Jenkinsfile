@@ -1,13 +1,13 @@
 pipeline {
     agent any
 
-    triggers {
+   // triggers {
         // Everyday 10:30AM
        // cron('30 10 * * *')
         
         // Every 5 mins
-        cron('H/5 * * * *')
-    }
+  //      cron('H/5 * * * *')
+   // }
     
     environment {
         IMAGE_NAME = "flask-calculator"
