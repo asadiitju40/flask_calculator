@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_BUILDKIT = "0"   // disable buildx requirement
+        DOCKER_BUILDKIT = "0"
     }
 
     stages {
@@ -10,23 +10,28 @@ pipeline {
         stage('Debug Environment') {
             steps {
                 sh '''
-                echo "=== Docker Info ==="
+                echo "=== Docker Version ==="
                 docker --version
 
-                echo "=== Docker Compose Info ==="
+                echo "=== Compose Version ==="
                 docker-compose --version
 
-                echo "=== Working Directory ==="
+                echo "=== Workspace ==="
                 pwd
                 ls -la
                 '''
             }
         }
 
-        stage('Stop Existing Stack') {
+        stage('Stop Existing Stack & Cleanup') {
             steps {
                 sh '''
-                docker-compose down || true
+                echo "Stopping existing containers..."
+                docker-compose down --remove-orphans || true
+
+                echo "Removing any leftover containers using port 5000..."
+                docker ps -q --filter "publish=5000" | xargs -r docker stop || true
+                docker ps -aq --filter "publish=5000" | xargs -r docker rm || true
                 '''
             }
         }
@@ -34,16 +39,20 @@ pipeline {
         stage('Build & Start Services') {
             steps {
                 sh '''
+                echo "Building and starting stack..."
                 docker-compose up -d --build
                 '''
             }
         }
 
-        stage('Verify Running Containers') {
+        stage('Verify Deployment') {
             steps {
                 sh '''
                 echo "=== Running Containers ==="
                 docker ps
+
+                echo "=== Listening Ports ==="
+                netstat -tulpn || true
                 '''
             }
         }
@@ -51,14 +60,14 @@ pipeline {
 
     post {
         success {
-            echo "✅ Full stack deployed successfully (Flask + Monitoring)"
-            echo "🌐 Access app: http://<your-server-ip>:5000"
+            echo "✅ Deployment successful (Flask + Monitoring stack)"
+            echo "🌐 App: http://<server-ip>:5000"
         }
         failure {
-            echo "❌ Build or deployment failed"
+            echo "❌ Deployment failed"
         }
         always {
-            echo "ℹ️ Pipeline execution finished"
+            echo "ℹ️ Pipeline finished"
         }
     }
 }
