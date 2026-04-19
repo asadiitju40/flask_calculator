@@ -6,37 +6,49 @@ pipeline {
     }
 
     stages {
-        stage('Checkout Code') {
+
+        stage('Debug Environment') {
             steps {
-                checkout scm
+                sh '''
+                echo "Checking Docker & Compose..."
+                docker --version
+                docker-compose --version
+                '''
             }
         }
 
         stage('Stop Existing Stack') {
             steps {
-                sh "docker compose down || true"
+                sh '''
+                docker-compose down || true
+                '''
             }
         }
 
         stage('Build & Start Services') {
             steps {
-                sh "docker compose up -d --build"
+                sh '''
+                docker-compose up -d --build
+                '''
             }
         }
 
-        stage('Verify Running') {
+        stage('Verify Running Containers') {
             steps {
-                sh "docker ps"
+                sh '''
+                docker ps
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "✅ Full stack deployed (App + Monitoring)"
+            echo "✅ Full stack deployed successfully (Flask + Monitoring)"
+            echo "🌐 Access app: http://<your-server-ip>:5000"
         }
         failure {
-            echo "❌ Deployment failed"
+            echo "❌ Build or deployment failed"
         }
     }
 }
