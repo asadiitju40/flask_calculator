@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE_FILE = "docker-compose.yml"
+        DOCKER_BUILDKIT = "0"   // disable buildx requirement
     }
 
     stages {
@@ -10,9 +10,15 @@ pipeline {
         stage('Debug Environment') {
             steps {
                 sh '''
-                echo "Checking Docker & Compose..."
+                echo "=== Docker Info ==="
                 docker --version
+
+                echo "=== Docker Compose Info ==="
                 docker-compose --version
+
+                echo "=== Working Directory ==="
+                pwd
+                ls -la
                 '''
             }
         }
@@ -36,6 +42,7 @@ pipeline {
         stage('Verify Running Containers') {
             steps {
                 sh '''
+                echo "=== Running Containers ==="
                 docker ps
                 '''
             }
@@ -49,6 +56,9 @@ pipeline {
         }
         failure {
             echo "❌ Build or deployment failed"
+        }
+        always {
+            echo "ℹ️ Pipeline execution finished"
         }
     }
 }
