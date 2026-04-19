@@ -1,17 +1,8 @@
 pipeline {
     agent any
 
-   // triggers {
-        // Everyday 10:30AM
-       // cron('30 10 * * *')
-        
-        // Every 5 mins
-  //      cron('H/5 * * * *')
-   // }
-    
     environment {
-        IMAGE_NAME = "flask-calculator"
-        CONTAINER_NAME = "flask-calculator"
+        COMPOSE_FILE = "docker-compose.yml"
     }
 
     stages {
@@ -21,34 +12,31 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Stop Existing Stack') {
             steps {
-                sh "docker build -t ${IMAGE_NAME} ."
+                sh "docker compose down || true"
             }
         }
 
-        stage('Stop Previous Container') {
+        stage('Build & Start Services') {
             steps {
-                sh """
-                docker stop ${CONTAINER_NAME} || true
-                docker rm ${CONTAINER_NAME} || true
-                """
+                sh "docker compose up -d --build"
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Verify Running') {
             steps {
-                sh "docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${IMAGE_NAME}"
+                sh "docker ps"
             }
         }
     }
 
     post {
         success {
-            echo "✅ App deployed successfully at http://<your-server-ip>:5000"
+            echo "✅ Full stack deployed (App + Monitoring)"
         }
         failure {
-            echo "❌ Build or deploy failed."
+            echo "❌ Deployment failed"
         }
     }
 }
